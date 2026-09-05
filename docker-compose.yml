@@ -1,0 +1,7 @@
+services:
+  devops-survival:
+    build: .
+    container_name: devops-survival
+    restart: unless-stopped
+    ports:
+      - "8088:80"
