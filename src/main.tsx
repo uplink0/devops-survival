@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import { AlertTriangle, CheckCircle2, Terminal, Cpu, MemoryStick, HardDrive, RotateCcw, Skull, ShieldAlert, Send, Clock3, Lightbulb } from 'lucide-react';
 import './styles.css';
 
