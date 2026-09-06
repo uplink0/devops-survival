@@ -27,42 +27,47 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     steps:
-      - name: Test OpenAI API
+      - name: Test OpenRouter API
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: gpt-5.6-luna
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: openrouter/free
         run: |
           set -e
           if [ -z "$OPENAI_API_KEY" ]; then
             echo "OPENAI_API_KEY is EMPTY"
             exit 1
           fi
-          http_code=$(curl -sS -o /tmp/openai-response.json -w "%{http_code}" \
-            https://api.openai.com/v1/responses \
+          http_code=$(curl -sS -o /tmp/openrouter-response.json -w "%{http_code}" \
+            "$OPENAI_BASE_URL/responses" \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
             -H "Content-Type: application/json" \
+            -H "HTTP-Referer: https://atlas-infra.ru" \
+            -H "X-Title: DND Adventure" \
             -d "{\"model\":\"$OPENAI_MODEL\",\"input\":\"Reply with exactly OK\",\"max_output_tokens\":16,\"store\":false}")
-          echo "OpenAI HTTP status: $http_code"
+          echo "OpenRouter HTTP status: $http_code"
           if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-            echo "OpenAI response:"
-            cat /tmp/openai-response.json
+            echo "OpenRouter response:"
+            cat /tmp/openrouter-response.json
             exit 1
           fi
-          echo "OpenAI API test: OK"
+          echo "OpenRouter API test: OK"
       - name: Deploy to production
         uses: appleboy/ssh-action@v1.2.2
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: gpt-5.6-luna
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: openrouter/free
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: OPENAI_API_KEY,OPENAI_MODEL
+          envs: OPENAI_API_KEY,OPENAI_BASE_URL,OPENAI_MODEL
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
             export OPENAI_API_KEY="$OPENAI_API_KEY"
+            export OPENAI_BASE_URL="$OPENAI_BASE_URL"
             export OPENAI_MODEL="$OPENAI_MODEL"
             git pull --ff-only origin main
             docker compose up -d --build
@@ -81,5 +86,7 @@ jobs:
               exit 1
             fi
             echo "AI DM configuration:"
-            curl -fsS -H "Authorization: Bearer $OPENAI_API_KEY" http://localhost:8088/api/dm/status || true
+            echo "OPENAI_BASE_URL=$OPENAI_BASE_URL"
+            echo "OPENAI_MODEL=$OPENAI_MODEL"
+            if [ -n "$OPENAI_API_KEY" ]; then echo "OPENAI_API_KEY=SET"; else echo "OPENAI_API_KEY=EMPTY"; exit 1; fi
             echo
