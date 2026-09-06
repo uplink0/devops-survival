@@ -19,6 +19,7 @@ SHOP_ITEMS={
  'antidote':{'name':'Противоядие','icon':'🧴','price':30,'description':'Снимает обычное отравление.','category':'Расходуемое'},
  'rope':{'name':'Верёвка','icon':'🪢','price':12,'description':'10 метров крепкой пеньковой верёвки.','category':'Снаряжение'}
 }
+CONSUMABLE_ITEMS={'potion','torch','mana_scroll','antidote'}
 def public_user(u:User):
  return {'id':u.id,'username':u.username,'email':u.email,'xp':u.xp,'streak':u.streak,'gold':u.gold,'created_at':u.created_at,'avatar_url':u.avatar_url,'character':None if not u.character_name else {'name':u.character_name,'race':u.character_race,'class':u.character_class,'background':u.character_background,'stats':{'strength':u.strength,'dexterity':u.dexterity,'constitution':u.constitution,'intelligence':u.intelligence,'wisdom':u.wisdom,'charisma':u.charisma}}}
 def ensure_companions(user:User,db:Session):
@@ -73,7 +74,8 @@ def use_inventory_item(item_key:str,user:User=Depends(current_user),db:Session=D
  if not user.character_name:raise HTTPException(400,'Сначала создай персонажа')
  item=db.scalar(select(InventoryItem).where(InventoryItem.user_id==user.id,InventoryItem.item_key==item_key,InventoryItem.quantity>0))
  if not item:raise HTTPException(404,'Предмет отсутствует в инвентаре')
- item.quantity-=1
+ if item_key in CONSUMABLE_ITEMS:
+  item.quantity-=1
  db.commit()
  rows=db.scalars(select(InventoryItem).where(InventoryItem.user_id==user.id,InventoryItem.quantity>0).order_by(InventoryItem.id)).all()
  return {'inventory':[{'id':x.id,'item_key':x.item_key,'name':x.name,'icon':x.icon,'quantity':x.quantity,'description':x.description} for x in rows]}
