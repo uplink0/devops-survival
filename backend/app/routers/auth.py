@@ -6,7 +6,7 @@ from ..db import get_db
 from ..models import Companion,InventoryItem,User
 from ..schemas import LoginIn,RegisterIn
 router=APIRouter(prefix='/api/auth',tags=['auth'])
-def public(u:User):return {'id':u.id,'username':u.username,'email':u.email,'xp':u.xp,'streak':u.streak,'created_at':u.created_at,'avatar_url':u.avatar_url}
+def public(u:User):return {'id':u.id,'username':u.username,'email':u.email,'xp':u.xp,'streak':u.streak,'created_at':u.created_at,'avatar_url':u.avatar_url,'character':None if not u.character_name else {'name':u.character_name,'race':u.character_race,'class':u.character_class,'background':u.character_background,'stats':{'strength':u.strength,'dexterity':u.dexterity,'constitution':u.constitution,'intelligence':u.intelligence,'wisdom':u.wisdom,'charisma':u.charisma}}}
 @router.post('/register')
 def register(data:RegisterIn,db:Session=Depends(get_db)):
  username=data.username.strip();email=str(data.email).lower().strip()
