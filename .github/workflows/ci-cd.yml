@@ -39,12 +39,12 @@ jobs:
             exit 1
           fi
           http_code=$(curl -sS -o /tmp/openrouter-response.json -w "%{http_code}" \
-            "$OPENAI_BASE_URL/responses" \
+            "$OPENAI_BASE_URL/chat/completions" \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
             -H "Content-Type: application/json" \
             -H "HTTP-Referer: https://atlas-infra.ru" \
             -H "X-Title: DND Adventure" \
-            -d "{\"model\":\"$OPENAI_MODEL\",\"input\":\"Reply with exactly OK\",\"max_output_tokens\":16,\"store\":false}")
+            -d '{"model":"openrouter/free","messages":[{"role":"user","content":"Reply with exactly OK"}],"max_tokens":16}')
           echo "OpenRouter HTTP status: $http_code"
           if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
             echo "OpenRouter response:"
