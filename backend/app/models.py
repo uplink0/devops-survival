@@ -6,7 +6,7 @@ from .db import Base
 def now():return datetime.now(timezone.utc)
 class User(Base):
  __tablename__='users'
- id:Mapped[int]=mapped_column(primary_key=True);username:Mapped[str]=mapped_column(String(32),unique=True,index=True);email:Mapped[str]=mapped_column(String(255),unique=True,index=True);password_hash:Mapped[str]=mapped_column(String(255));xp:Mapped[int]=mapped_column(Integer,default=0);streak:Mapped[int]=mapped_column(Integer,default=0);avatar_url:Mapped[str|None]=mapped_column(String(512),nullable=True)
+ id:Mapped[int]=mapped_column(primary_key=True);username:Mapped[str]=mapped_column(String(32),unique=True,index=True);email:Mapped[str]=mapped_column(String(255),unique=True,index=True);password_hash:Mapped[str]=mapped_column(String(255));xp:Mapped[int]=mapped_column(Integer,default=0);streak:Mapped[int]=mapped_column(Integer,default=0);gold:Mapped[int]=mapped_column(Integer,default=0);avatar_url:Mapped[str|None]=mapped_column(String(512),nullable=True)
  character_name:Mapped[str|None]=mapped_column(String(80),nullable=True);character_race:Mapped[str|None]=mapped_column(String(80),nullable=True);character_class:Mapped[str|None]=mapped_column(String(80),nullable=True);character_background:Mapped[str|None]=mapped_column(String(160),nullable=True)
  strength:Mapped[int|None]=mapped_column(Integer,nullable=True);dexterity:Mapped[int|None]=mapped_column(Integer,nullable=True);constitution:Mapped[int|None]=mapped_column(Integer,nullable=True);intelligence:Mapped[int|None]=mapped_column(Integer,nullable=True);wisdom:Mapped[int|None]=mapped_column(Integer,nullable=True);charisma:Mapped[int|None]=mapped_column(Integer,nullable=True)
  created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
