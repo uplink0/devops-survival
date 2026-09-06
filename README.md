@@ -1,21 +1,23 @@
-# DevOps Survival Simulator 🚨
+# DND Adventure 🗡️
 
-A small game for people who think production incidents are a personality trait.
+Интерактивное D&D-приключение в браузере. Создай героя, проходи квесты, бросай d20, получай опыт и собирай свою хронику приключений.
 
-## Concept
+## Что внутри
 
-Survive randomly generated DevOps incidents, diagnose the root cause, and recover the system before the SRE gods notice.
+- авторизация и регистрация героя
+- сохранение прогресса и опыта
+- уровни персонажа
+- HP и последствия неудачных решений
+- бросок d20 с критическим успехом и провалом
+- сюжетные квесты с несколькими этапами
+- подсказки и награды
+- зал славы игроков
+- история событий текущего приключения
 
-Planned mechanics:
-- CPU / RAM / disk pressure
-- Kubernetes CrashLoopBackOff and OOMKilled
-- Docker failures
-- broken services and networking
-- Ansible repair actions
-- score, streaks and incident history
-- deliberately questionable buttons
-- hidden jokes and easter eggs
+## Сеттинг
 
-## Status
+Герой путешествует по миру, где его ждут гоблинские пещеры, проклятые гробницы, драконы, ведьмы и древняя магия. Каждый квест требует принимать решения, а необдуманные действия могут стоить здоровья.
 
-🚧 MVP is being built.
+## Статус
+
+🚧 Активная разработка.
