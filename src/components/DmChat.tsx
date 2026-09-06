@@ -1,0 +1,4 @@
+import {Send,MessageCircle} from 'lucide-react';
+import {useState} from 'react';
+import {useGame} from '../context/GameContext';
+export default function DmChat(){const {log}=useGame();const [text,setText]=useState('');const send=()=>{if(!text.trim())return;setText('')};return <section className="dm-chat"><div className="panel-title"><MessageCircle size={15}/> МАСТЕР ПРИКЛЮЧЕНИЯ <span className="soon">AI · скоро</span></div><div className="chat-body"><div className="dm-message"><b>Мастер</b><p>Твоя история только начинается. Опиши намерение или выбери действие ниже.</p></div>{log.slice(0,4).reverse().map((x,i)=><div className="event-message" key={i}>{x}</div>)}</div><div className="chat-input"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Напиши мастеру..."/><button onClick={send} aria-label="Отправить"><Send size={15}/></button></div></section>}
