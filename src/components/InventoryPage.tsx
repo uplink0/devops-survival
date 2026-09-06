@@ -3,18 +3,18 @@ import {Backpack,ChevronRight,Flame,Heart,ScrollText,Swords,Weight} from 'lucide
 import {useGame} from '../context/GameContext';
 import './inventory.css';
 
-type ItemMeta={category:string;rarity:string;effect:string;healing?:string;damage?:string;range?:string;weight?:string;description:string;useLabel?:string};
+type ItemMeta={category:string;rarity:string;effect:string;healing?:string;damage?:string;range?:string;weight?:string;description:string};
 
 const itemMeta:Record<string,ItemMeta>={
-  potion:{category:'Расходуемое',rarity:'Обычное',effect:'Восстанавливает здоровье',healing:'+20 HP',weight:'0.5 кг',description:'Небольшой флакон с алой жидкостью. Пахнет травами и чем-то подозрительно сладким.',useLabel:'Выпить'},
-  torch:{category:'Снаряжение',rarity:'Обычное',effect:'Освещает тёмные места',damage:'1d4 огнём',weight:'0.5 кг',description:'Простой факел. Горит около часа и позволяет видеть в темноте. При необходимости может использоваться как импровизированное оружие.',useLabel:'Использовать'},
+  potion:{category:'Расходуемое',rarity:'Обычное',effect:'Восстанавливает здоровье',healing:'+20 HP',weight:'0.5 кг',description:'Небольшой флакон с алой жидкостью. Пахнет травами и чем-то подозрительно сладким.'},
+  torch:{category:'Снаряжение',rarity:'Обычное',effect:'Освещает тёмные места',damage:'1d4 огнём',weight:'0.5 кг',description:'Простой факел. Горит около часа и позволяет видеть в темноте. При необходимости может использоваться как импровизированное оружие.'},
   dagger:{category:'Оружие',rarity:'Обычное',effect:'Ближний колющий удар',damage:'1d4 колющего',range:'5 фт',weight:'1 кг',description:'Лёгкий кинжал с узким лезвием. Удобен для скрытных атак, метания и ближнего боя.'}
 };
 
 function metaFor(item:{item_key:string;description?:string|null}):ItemMeta{return itemMeta[item.item_key]??{category:'Предмет',rarity:'Обычное',effect:'Без специального эффекта',description:item.description||'Описание предмета пока не добавлено.'};}
 
 export default function InventoryPage(){
-  const {inventory,useItem}=useGame();
+  const {inventory}=useGame();
   const [selectedId,setSelectedId]=useState(inventory[0]?.id??'');
   const selected=inventory.find(item=>item.id===selectedId)??inventory[0];
   const meta=selected?metaFor(selected):null;
@@ -50,7 +50,6 @@ export default function InventoryPage(){
           {meta.range&&<div><span><Flame size={15}/> ДАЛЬНОСТЬ</span><b>{meta.range}</b></div>}
           {meta.weight&&<div><span><Weight size={15}/> ВЕС</span><b>{meta.weight}</b></div>}
         </div>
-        {selected.count>0&&meta.useLabel&&<button className="inventory-use" onClick={()=>useItem(selected.id)}>✦ {meta.useLabel}</button>}
       </article>}
     </div>}
   </section>;
