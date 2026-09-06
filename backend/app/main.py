@@ -1,4 +1,5 @@
-import os
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 from typing import Generator
 
@@ -9,7 +10,7 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr, Field
 from pydantic_settings import BaseSettings
 from pwdlib import PasswordHash
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select
+from sqlalchemy import DateTime, ForeignKey, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
 
@@ -120,6 +121,14 @@ def health() -> dict:
         return {"status": "degraded", "database": "unavailable"}
 
 
+def user_public(user: User) -> dict:
+    return {"id": user.id, "username": user.username, "email": user.email, "xp": user.xp, "streak": user.streak, "created_at": user.created_at}
+
+
+def progress_public(row: Progress) -> dict:
+    return {"incident_id": row.incident_id, "solved": row.solved, "best_score": row.best_score, "attempts": row.attempts, "last_played": row.last_played}
+
+
 @app.post("/api/auth/register")
 def register(data: RegisterIn, session: Session = Depends(db)) -> dict:
     username = data.username.strip()
@@ -144,10 +153,6 @@ def login(data: LoginIn, session: Session = Depends(db)) -> dict:
     return {"access_token": token_for(user), "token_type": "bearer", "user": user_public(user)}
 
 
-def user_public(user: User) -> dict:
-    return {"id": user.id, "username": user.username, "email": user.email, "xp": user.xp, "streak": user.streak, "created_at": user.created_at}
-
-
 @app.get("/api/auth/me")
 def me(user: User = Depends(current_user)) -> dict:
     return user_public(user)
@@ -159,22 +164,18 @@ def profile(user: User = Depends(current_user), session: Session = Depends(db)) 
     return {"user": user_public(user), "progress": [progress_public(x) for x in rows]}
 
 
-def progress_public(row: Progress) -> dict:
-    return {"incident_id": row.incident_id, "solved": row.solved, "best_score": row.best_score, "attempts": row.attempts, "last_played": row.last_played}
-
-
 @app.post("/api/progress")
 def save_progress(data: ProgressIn, user: User = Depends(current_user), session: Session = Depends(db)) -> dict:
     row = session.scalar(select(Progress).where(Progress.user_id == user.id, Progress.incident_id == data.incident_id))
-    now = datetime.now(timezone.utc)
     if not row:
         row = Progress(user_id=user.id, incident_id=data.incident_id)
         session.add(row)
     row.attempts += 1
     row.solved = row.solved or data.solved
     row.best_score = max(row.best_score, data.score)
-    row.last_played = now
-    user.xp = sum(x.best_score for x in user.progress if x is not row) + row.best_score
+    row.last_played = datetime.now(timezone.utc)
+    session.flush()
+    user.xp = sum(x.best_score for x in user.progress)
     if data.solved:
         user.streak = max(user.streak, 1)
     session.commit()
