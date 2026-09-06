@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useState,type DragEvent} from 'react';
 import {Backpack,ChevronRight,Coins,Flame,Heart,ScrollText,Swords,Weight} from 'lucide-react';
 import {buyShopItem,getInventory,getShop,me} from '../api';
 import type {InventoryItem,ShopItem} from '../api';
@@ -24,7 +24,7 @@ export default function InventoryPage(){
  const selected=inventory.find(item=>item.id===selectedId)??inventory[0];const meta=selected?metaFor(selected):null;const totalItems=inventory.reduce((sum,item)=>sum+item.quantity,0);
  const grouped=useMemo(()=>shop.reduce<Record<string,ShopItem[]>>((groups,item)=>{(groups[item.category]??=[]).push(item);return groups},{}),[shop]);
  const buy=async(itemKey:string)=>{setError('');try{const result=await buyShopItem(itemKey);setGold(result.gold);setInventory(result.inventory);setSelectedId(result.inventory.find(x=>x.item_key===itemKey)?.id??result.inventory[0]?.id??null)}catch(e){setError(e instanceof Error?e.message:'Не удалось купить предмет')}};
- const handleDrop=(event:React.DragEvent)=>{event.preventDefault();if(dragKey)void buy(dragKey);setDragKey(null)};
+ const handleDrop=(event:DragEvent)=>{event.preventDefault();if(dragKey)void buy(dragKey);setDragKey(null)};
  return <section className="page-panel inventory-page">
   <div className="inventory-page-head"><div><div className="panel-title"><Backpack size={16}/><span>ИНВЕНТАРЬ</span></div><h1>Снаряжение героя</h1><p>Пустой рюкзак после создания персонажа. Новые предметы покупаются в магазине.</p></div><div className="inventory-counter"><strong>{totalItems}</strong><span>предметов</span></div></div>
   {error&&<div className="inventory-error">{error}</div>}
