@@ -1,4 +1,5 @@
-export type User={id:number;username:string;email:string;xp:number;streak:number;created_at:string;avatar_url?:string|null};
+export type Character={name:string;race:string;class:string;background:string;stats:{strength:number;dexterity:number;constitution:number;intelligence:number;wisdom:number;charisma:number}};
+export type User={id:number;username:string;email:string;xp:number;streak:number;created_at:string;avatar_url?:string|null;character?:Character|null};
 export type InventoryItem={id:number;item_key:string;name:string;icon:string;quantity:number;description?:string|null};
 export type Companion={id:number;name:string;role:string;emoji:string;description?:string|null;hp:number};
 export type ChatMessage={id:number;role:'user'|'assistant';content:string;created_at:string};
@@ -7,12 +8,6 @@ export const token=()=>localStorage.getItem(TOKEN_KEY);export const logout=()=>l
 async function request<T>(path:string,options:RequestInit={}):Promise<T>{const headers=new Headers(options.headers);if(!(options.body instanceof FormData))headers.set('Content-Type','application/json');const t=token();if(t)headers.set('Authorization',`Bearer ${t}`);const res=await fetch(path,{...options,headers});const data=await res.json().catch(()=>({detail:'Server returned invalid JSON'}));if(!res.ok)throw new Error(data.detail||`HTTP ${res.status}`);return data}
 export async function register(username:string,email:string,password:string){const data=await request<{access_token:string;user:User}>('/api/auth/register',{method:'POST',body:JSON.stringify({username,email,password})});localStorage.setItem(TOKEN_KEY,data.access_token);return data.user}
 export async function login(loginValue:string,password:string){const data=await request<{access_token:string;user:User}>('/api/auth/login',{method:'POST',body:JSON.stringify({login:loginValue,password})});localStorage.setItem(TOKEN_KEY,data.access_token);return data.user}
-export const me=()=>request<User>('/api/auth/me');
-export const profile=()=>request<{user:User;progress:any[]}>('/api/profile');
-export const leaderboard=()=>request<{rank:number;username:string;xp:number;streak:number}[]>('/api/leaderboard');
-export const saveProgress=(incident_id:string,solved:boolean,score:number)=>request('/api/progress',{method:'POST',body:JSON.stringify({incident_id,solved,score})});
-export const getInventory=()=>request<InventoryItem[]>('/api/inventory');
-export const getCompanions=()=>request<Companion[]>('/api/companions');
-export const getChat=()=>request<ChatMessage[]>('/api/chat');
-export const sendChat=(content:string)=>request<ChatMessage>('/api/chat',{method:'POST',body:JSON.stringify({content})});
-export async function uploadAvatar(file:File){const form=new FormData();form.append('file',file);return request<{avatar_url:string}>('/api/avatar',{method:'POST',body:form})}
+export const me=()=>request<User>('/api/auth/me');export const profile=()=>request<{user:User;progress:any[]}>('/api/profile');export const leaderboard=()=>request<{rank:number;username:string;xp:number;streak:number}[]>('/api/leaderboard');export const saveProgress=(incident_id:string,solved:boolean,score:number)=>request('/api/progress',{method:'POST',body:JSON.stringify({incident_id,solved,score})});export const getInventory=()=>request<InventoryItem[]>('/api/inventory');export const getCompanions=()=>request<Companion[]>('/api/companions');export const getChat=()=>request<ChatMessage[]>('/api/chat');export const sendChat=(content:string)=>request<ChatMessage>('/api/chat',{method:'POST',body:JSON.stringify({content})});export async function uploadAvatar(file:File){const form=new FormData();form.append('file',file);return request<{avatar_url:string}>('/api/avatar',{method:'POST',body:form})}
+export const createCharacter=(character:Omit<Character,'class'> & {'class':string})=>request<User>('/api/character',{method:'POST',body:JSON.stringify({name:character.name,race:character.race,character_class:character.class,background:character.background,...character.stats})});
+export const deleteCharacter=()=>request<User>('/api/character',{method:'DELETE'});
