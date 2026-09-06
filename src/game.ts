@@ -1,5 +1,5 @@
 export type Quest={id:string;title:string;location:string;difficulty:string;description:string;story:string;actions:string[];wrong:string;points:number;reward:string;hint:string};
-export type InventoryItem={id:string;name:string;icon:string;count:number;description:string};
+export type InventoryItem={id:string;item_key:string;name:string;icon:string;count:number;description:string};
 export type Companion={id:string;name:string;role:string;emoji:string;description:string;hp:number};
 
 export const quests:Quest[]=[
@@ -9,5 +9,5 @@ export const quests:Quest[]=[
 {id:'witch-swamp',title:'Ведьма Чёрного болота',location:'Топи Мордана',difficulty:'Среднее',description:'Ведьма украла у деревни урожай и держит старосту в плену.',story:'Туман скрывает тропы. Где-то впереди стоит хижина на курьих ножках, а вокруг расставлены странные тотемы.',actions:['Найти безопасную тропу','Изучить тотемы','Освободить старосту'],wrong:'Сорвать первый попавшийся тотем. Болото начинает шевелиться.',points:150,reward:'120 золотых + Зелье невидимости',hint:'Тотемы отмечают безопасный путь. Не разрушай их без причины.'},
 {id:'lost-prince',title:'Пропавший наследник',location:'Лес Серебряной Луны',difficulty:'Эпическое',description:'Принц исчез во время охоты. Королевская стража нашла только его медальон.',story:'Медальон светится рядом с древними деревьями. Следы ведут в лес, где обычные законы пространства больше не работают.',actions:['Исследовать медальон','Следовать за огнями','Открыть портал'],wrong:'Бежать за первым огоньком. Лес меняет тропу прямо под ногами.',points:250,reward:'500 золотых + Благословение короля',hint:'Медальон — ключ. Сначала пойми, почему он реагирует на лес.'}
 ];
-export const starterInventory:InventoryItem[]=[{id:'potion',name:'Зелье лечения',icon:'🧪',count:2,description:'Восстанавливает здоровье.'},{id:'torch',name:'Факел',icon:'🔥',count:3,description:'Освещает тёмные места.'},{id:'dagger',name:'Кинжал',icon:'🗡️',count:1,description:'Простой, но надёжный.'}];
+export const starterInventory:InventoryItem[]=[{id:'potion',item_key:'potion',name:'Зелье лечения',icon:'🧪',count:2,description:'Восстанавливает здоровье.'},{id:'torch',item_key:'torch',name:'Факел',icon:'🔥',count:3,description:'Освещает тёмные места.'},{id:'dagger',item_key:'dagger',name:'Кинжал',icon:'🗡️',count:1,description:'Простой, но надёжный.'}];
 export const starterCompanions:Companion[]=[{id:'lyra',name:'Лира',role:'Следопыт',emoji:'🏹',description:'Тихая и наблюдательная. Хорошо читает следы.',hp:82},{id:'borin',name:'Борин',role:'Воин',emoji:'🛡️',description:'Держит строй и принимает удар на себя.',hp:100}];
