@@ -1,0 +1,3 @@
+import {Backpack,PackageOpen} from 'lucide-react';
+import {useGame} from '../context/GameContext';
+export default function InventoryPanel(){const {inventory,useItem}=useGame();return <aside className="side-panel inventory"><div className="panel-title"><Backpack size={15}/> ИНВЕНТАРЬ</div><div className="item-grid">{inventory.map(item=><button className="item" key={item.id} onClick={()=>useItem(item.id)} title={item.description}><span className="item-icon">{item.icon}</span><span className="item-name">{item.name}</span><b>x{item.count}</b></button>)}</div><div className="empty-slot"><PackageOpen size={14}/> Перетащи сюда предметы</div></aside>}
