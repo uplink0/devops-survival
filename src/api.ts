@@ -8,6 +8,7 @@ export type Companion={id:number;name:string;role:string;emoji:string;descriptio
 export type ChatMessage={id:number;role:'user'|'assistant';content:string;created_at:string};
 export type DndSheet={character:Character;derived:{level:number;proficiency_bonus:number;ability_modifiers:Record<string,number>;saving_throw_proficiencies:string[];saving_throws:Record<string,number>;skill_proficiencies:string[];skills:Record<string,{name:string;ability:string;modifier:number;proficient:boolean}>;initiative:number;armor_class:number;max_hp:number;passive_perception:number}};
 export type DndCheck={skill:string;skill_name:string;ability:string;roll:number;ability_modifier:number;proficiency_bonus:number;total:number;dc:number;success:boolean;critical:boolean;critical_failure:boolean;level:number};
+export type DndRoll={kind:'skill'|'save'|'attack'|'damage';key:string;name:string;ability?:string;roll:number;rolls?:number[];modifier?:number;proficiency?:number;total:number;target?:number;success?:boolean;critical?:boolean;critical_failure?:boolean;damage_die?:number;ability_modifier?:number};
 const TOKEN_KEY='devops_survival_token';
 export const token=()=>localStorage.getItem(TOKEN_KEY);export const logout=()=>localStorage.removeItem(TOKEN_KEY);
 async function request<T>(path:string,options:RequestInit={}):Promise<T>{const headers=new Headers(options.headers);if(!(options.body instanceof FormData))headers.set('Content-Type','application/json');const t=token();if(t)headers.set('Authorization',`Bearer ${t}`);const res=await fetch(path,{...options,headers});const data=await res.json().catch(()=>({detail:'Server returned invalid JSON'}));if(!res.ok)throw new Error(data.detail||`HTTP ${res.status}`);return data}
@@ -18,3 +19,4 @@ export const createCharacter=(character:Omit<Character,'class'> & {'class':strin
 export const deleteCharacter=()=>request<User>('/api/character',{method:'DELETE'});
 export const getCharacterSheet=()=>request<DndSheet>('/api/character/sheet');
 export const makeDndCheck=(skill:string,dc:number,advantage:-1|0|1=0)=>request<DndCheck>('/api/check',{method:'POST',body:JSON.stringify({skill,dc,advantage})});
+export const rollDnd=(kind:'skill'|'save'|'attack'|'damage',key:string,target:number=15,advantage:-1|0|1=0)=>request<DndRoll>('/api/dnd/roll',{method:'POST',body:JSON.stringify({kind,key,target,advantage})});
