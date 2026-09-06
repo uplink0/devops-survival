@@ -1,0 +1,3 @@
+import {Users,Heart} from 'lucide-react';
+import {useGame} from '../context/GameContext';
+export default function CompanionsPanel(){const {companions}=useGame();return <aside className="side-panel companions"><div className="panel-title"><Users size={15}/> СПУТНИКИ <span>{companions.length}</span></div>{companions.map(c=><article className="companion" key={c.id}><div className="companion-avatar">{c.emoji}</div><div className="companion-main"><strong>{c.name}</strong><span>{c.role}</span><small>{c.description}</small><div className="companion-hp"><Heart size={10}/><i style={{width:`${c.hp}%`}}/></div></div></article>)}</aside>}

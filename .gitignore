@@ -7,3 +7,7 @@ dist/
 .idea/
 .DS_Store
 coverage/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+backend/uploads/
