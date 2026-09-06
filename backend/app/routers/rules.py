@@ -3,39 +3,27 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..db import get_db
-from ..dnd_rules import ABILITIES, SKILLS, WEAPONS, ability_modifier, character_derived, d20_roll, proficiency_bonus, roll_die
+from ..dnd_rules import ABILITIES, SKILLS, WEAPONS, CLASS_WEAPONS, ability_modifier, character_derived, d20_roll, proficiency_bonus, roll_die, level_from_xp
 from ..models import User, InventoryItem
 
-router = APIRouter(prefix='/api', tags=['rules'])
-
-def stats_for(user: User):
-    return {k: getattr(user, k) or 10 for k in ABILITIES}
-
-def level_for(user: User):
-    return max(1, (user.xp // 250) + 1)
-
+router=APIRouter(prefix='/api',tags=['rules'])
+def stats_for(user:User): return {k:getattr(user,k) or 10 for k in ABILITIES}
+def level_for(user:User): return level_from_xp(user.xp)
+def inventory_keys(db,user_id): return {x.item_key for x in db.query(InventoryItem).filter(InventoryItem.user_id==user_id,InventoryItem.quantity>0).all()}
 class RollIn(BaseModel):
-    kind: str = Field(min_length=3, max_length=16)
-    key: str = Field(min_length=1, max_length=64)
-    target: int = Field(default=15, ge=1, le=30)
-    advantage: int = Field(default=0, ge=-1, le=1)
-
+    kind:str=Field(min_length=3,max_length=16);key:str=Field(min_length=1,max_length=64);target:int=Field(default=15,ge=1,le=30);advantage:int=Field(default=0,ge=-1,le=1)
 @router.get('/character/sheet')
-def character_sheet(user: User = Depends(current_user)):
-    if not user.character_name:
-        raise HTTPException(404, 'Персонаж не создан')
-    stats = stats_for(user)
-    return {'character': {'name':user.character_name,'race':user.character_race,'class':user.character_class,'background':user.character_background,'stats':stats}, 'derived':character_derived(stats,user.character_class or '',level_for(user))}
-
+def character_sheet(user:User=Depends(current_user),db:Session=Depends(get_db)):
+    if not user.character_name: raise HTTPException(404,'Персонаж не создан')
+    stats=stats_for(user);return {'character':{'name':user.character_name,'race':user.character_race,'class':user.character_class,'background':user.character_background,'stats':stats},'derived':character_derived(stats,user.character_class or '',level_for(user),inventory_keys(db,user.id))}
 @router.post('/dnd/roll')
-def dnd_roll(data: RollIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    if not user.character_name:
-        raise HTTPException(400, 'Сначала создай персонажа')
-    stats=stats_for(user); level=level_for(user); prof=proficiency_bonus(level); derived=character_derived(stats,user.character_class or '',level)
+def dnd_roll(data:RollIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    if not user.character_name: raise HTTPException(400,'Сначала создай персонажа')
+    stats=stats_for(user);level=level_for(user);prof=proficiency_bonus(level);derived=character_derived(stats,user.character_class or '',level,inventory_keys(db,user.id))
     if data.kind=='skill':
         skill=SKILLS.get(data.key)
         if not skill: raise HTTPException(404,'Навык не найден')
-        ability,name=skill; p=prof if data.key in derived['skill_proficiencies'] else 0
+        ability,name=skill;p=prof if data.key in derived['skill_proficiencies'] else 0
         return {'kind':'skill','key':data.key,'name':name,'ability':ability,**d20_roll(ability_modifier(stats[ability]),data.target,p,data.advantage)}
     if data.kind=='save':
         ability=data.key if data.key in ABILITIES else None
@@ -49,7 +37,8 @@ def dnd_roll(data: RollIn, user: User = Depends(current_user), db: Session = Dep
         if not owned: raise HTTPException(400,'Оружие отсутствует в инвентаре')
         ability=weapon['ability']
         if weapon.get('finesse'): ability='dexterity' if stats['dexterity']>=stats['strength'] else 'strength'
-        return {'kind':'attack','key':data.key,'name':weapon['name'],'ability':ability,'damage_die':weapon['damage'],**d20_roll(ability_modifier(stats[ability]),data.target,prof,data.advantage,attack=True)}
+        p=prof if data.key in CLASS_WEAPONS.get(user.character_class or '',set()) else 0
+        return {'kind':'attack','key':data.key,'name':weapon['name'],'ability':ability,'damage_die':weapon['damage'],'weapon_proficient':bool(p),**d20_roll(ability_modifier(stats[ability]),data.target,p,data.advantage,attack=True)}
     if data.kind=='damage':
         weapon=WEAPONS.get(data.key)
         if not weapon: raise HTTPException(404,'Оружие не поддерживается')
@@ -57,21 +46,12 @@ def dnd_roll(data: RollIn, user: User = Depends(current_user), db: Session = Dep
         if not owned: raise HTTPException(400,'Оружие отсутствует в инвентаре')
         ability=weapon['ability']
         if weapon.get('finesse'): ability='dexterity' if stats['dexterity']>=stats['strength'] else 'strength'
-        critical=data.target==20
-        raw=roll_die(weapon['damage'])+(roll_die(weapon['damage']) if critical else 0)
+        critical=data.target==20;raw=roll_die(weapon['damage'])+(roll_die(weapon['damage']) if critical else 0)
         return {'kind':'damage','key':data.key,'name':weapon['name'],'damage_die':weapon['damage'],'roll':raw,'ability_modifier':ability_modifier(stats[ability]),'total':max(1,raw+ability_modifier(stats[ability])),'critical':critical}
     raise HTTPException(400,'Неизвестный тип броска')
-
 class CheckIn(BaseModel):
-    skill: str = Field(min_length=1, max_length=64)
-    dc: int = Field(ge=1, le=30)
-    advantage: int = Field(default=0, ge=-1, le=1)
-
+    skill:str=Field(min_length=1,max_length=64);dc:int=Field(ge=1,le=30);advantage:int=Field(default=0,ge=-1,le=1)
 @router.post('/check')
-def make_check(data: CheckIn, user: User = Depends(current_user)):
-    stats=stats_for(user); level=level_for(user); prof=proficiency_bonus(level); derived=character_derived(stats,user.character_class or '',level)
-    skill=SKILLS.get(data.skill)
-    if not skill: raise HTTPException(404,'Навык не найден')
-    ability,name=skill; p=prof if data.skill in derived['skill_proficiencies'] else 0
-    result=d20_roll(ability_modifier(stats[ability]),data.dc,p,data.advantage)
-    return {'skill':data.skill,'skill_name':name,'ability':ability,'roll':result['roll'],'ability_modifier':result['modifier'],'proficiency_bonus':result['proficiency'],'total':result['total'],'dc':data.dc,'success':result['success'],'critical':False,'critical_failure':False,'level':level}
+def make_check(data:CheckIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    result=dnd_roll(RollIn(kind='skill',key=data.skill,target=data.dc,advantage=data.advantage),user,db)
+    return {'skill':data.skill,'skill_name':result['name'],'ability':result['ability'],'roll':result['roll'],'ability_modifier':result['modifier'],'proficiency_bonus':result['proficiency'],'total':result['total'],'dc':data.dc,'success':result['success'],'critical':False,'critical_failure':False,'level':level_for(user)}
