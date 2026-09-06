@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter,Depends,File,HTTPException,UploadFile
-from sqlalchemy import select
+from sqlalchemy import delete,select
 from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..config import settings
@@ -74,8 +74,7 @@ def use_inventory_item(item_key:str,user:User=Depends(current_user),db:Session=D
  if not user.character_name:raise HTTPException(400,'Сначала создай персонажа')
  item=db.scalar(select(InventoryItem).where(InventoryItem.user_id==user.id,InventoryItem.item_key==item_key,InventoryItem.quantity>0))
  if not item:raise HTTPException(404,'Предмет отсутствует в инвентаре')
- if item_key in CONSUMABLE_ITEMS:
-  item.quantity-=1
+ if item_key in CONSUMABLE_ITEMS:item.quantity-=1
  db.commit()
  rows=db.scalars(select(InventoryItem).where(InventoryItem.user_id==user.id,InventoryItem.quantity>0).order_by(InventoryItem.id)).all()
  return {'inventory':[{'id':x.id,'item_key':x.item_key,'name':x.name,'icon':x.icon,'quantity':x.quantity,'description':x.description} for x in rows]}
@@ -84,6 +83,9 @@ def companions(user:User=Depends(current_user),db:Session=Depends(get_db)):
  ensure_companions(user,db);return [{'id':x.id,'name':x.name,'role':x.role,'emoji':x.emoji,'description':x.description,'hp':x.hp} for x in db.scalars(select(Companion).where(Companion.user_id==user.id)).all()]
 @router.get('/chat')
 def chat(user:User=Depends(current_user),db:Session=Depends(get_db)):return [{'id':x.id,'role':x.role,'content':x.content,'created_at':x.created_at} for x in db.scalars(select(ChatMessage).where(ChatMessage.user_id==user.id).order_by(ChatMessage.created_at.asc()).limit(100)).all()]
+@router.delete('/chat')
+def clear_chat(user:User=Depends(current_user),db:Session=Depends(get_db)):
+ db.execute(delete(ChatMessage).where(ChatMessage.user_id==user.id));db.commit();return {'ok':True}
 @router.post('/chat')
 def send_chat(data:ChatIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
  msg=ChatMessage(user_id=user.id,role='user',content=data.content.strip());db.add(msg);db.commit();db.refresh(msg);return {'id':msg.id,'role':msg.role,'content':msg.content,'created_at':msg.created_at}
