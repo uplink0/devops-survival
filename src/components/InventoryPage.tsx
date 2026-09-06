@@ -1,4 +1,5 @@
-import {Backpack,ChevronRight,Flame,Heart,Shield,ScrollText,Swords,Weight} from 'lucide-react';
+import {useState} from 'react';
+import {Backpack,ChevronRight,Flame,Heart,ScrollText,Swords,Weight} from 'lucide-react';
 import {useGame} from '../context/GameContext';
 import './inventory.css';
 
@@ -14,7 +15,7 @@ function metaFor(item:{item_key:string;description?:string|null}):ItemMeta{retur
 
 export default function InventoryPage(){
   const {inventory,useItem}=useGame();
-  const [selectedId,setSelectedId]=useStateId(inventory[0]?.id??'');
+  const [selectedId,setSelectedId]=useState(inventory[0]?.id??'');
   const selected=inventory.find(item=>item.id===selectedId)??inventory[0];
   const meta=selected?metaFor(selected):null;
   const totalItems=inventory.reduce((sum,item)=>sum+item.count,0);
@@ -53,14 +54,4 @@ export default function InventoryPage(){
       </article>}
     </div>}
   </section>;
-}
-
-function useStateId(initial:string){
-  const [value,setValue]=requireState(initial);
-  return [value,setValue] as const;
-}
-function requireState(initial:string){
-  const ReactState=(globalThis as {__dndUseState?:typeof import('react').useState}).__dndUseState;
-  if(ReactState)return ReactState(initial);
-  throw new Error('React state unavailable');
 }
