@@ -4,9 +4,178 @@ import {clearChat,getChat,getInventory,me,rollDnd,sendChat,useInventoryItem,type
 import {useGame} from '../context/GameContext';
 import type {InventoryItem} from '../game';
 import './dm-chat.css';
+
 const skills=[['athletics','Атлетика'],['acrobatics','Акробатика'],['sleight_of_hand','Ловкость рук'],['stealth','Скрытность'],['arcana','Магия'],['history','История'],['investigation','Расследование'],['nature','Природа'],['religion','Религия'],['animal_handling','Уход за животными'],['insight','Проницательность'],['medicine','Медицина'],['perception','Внимательность'],['survival','Выживание'],['deception','Обман'],['intimidation','Запугивание'],['performance','Выступление'],['persuasion','Убеждение']] as const;
 const saves=[['strength','Сила'],['dexterity','Ловкость'],['constitution','Телосложение'],['intelligence','Интеллект'],['wisdom','Мудрость'],['charisma','Харизма']] as const;
 const weaponKeys=new Set(['dagger','shortsword','torch']);
 const damageDie:Record<string,number>={dagger:4,shortsword:6,torch:4};
 const contextText:Record<string,string>={potion:'Восстановить 20 HP.',antidote:'Снять обычное отравление.',torch:'Осветить тёмное место.',rope:'Использовать верёвку в текущей ситуации.',mana_scroll:'Использовать магический свиток.',leather_armor:'Надеть кожаную броню.'};
-export default function DmChat({hasCharacter=false}:{hasCharacter?:boolean}){const{quest,hp,solved,hint,toggleHint,next,log,addLog,heal}=useGame();const[messages,setMessages]=useState<ChatMessage[]>([]);const[text,setText]=useState('');const[name,setName]=useState('Персонаж');const[clearing,setClearing]=useState(false);const[mode,setMode]=useState<'skill'|'save'|'attack'>('skill');const[skill,setSkill]=useState('perception');const[save,setSave]=useState('dexterity');const[weapon,setWeapon]=useState('dagger');const[dc,setDc]=useState(15);const[advantage,setAdvantage]=useState<-1|0|1>(0);const[result,setResult]=useState<DndRoll|null>(null);const[damage,setDamage]=useState<DndRoll|null>(null);const[rolling,setRolling]=useState(false);const[items,setItems]=useState<InventoryItem[]>([]);const[itemsOpen,setItemsOpen]=useState(false);const[itemResult,setItemResult]=useState('');useEffect(()=>{getChat().then(setMessages).catch(()=>{});me().then(u=>setName(u.character?.name?.trim()||u.username||'Персонаж')).catch(()=>{});getInventory().then(x=>setItems(x.map(i=>({id:String(i.id),item_key:i.item_key,name:i.name,icon:i.icon,count:i.quantity,description:i.description??''})))).catch(()=>{})},[]);const ordinary=useMemo(()=>items.filter(i=>!weaponKeys.has(i.item_key)&&i.count>0),[items]);const ownedWeapons=useMemo(()=>items.filter(i=>weaponKeys.has(i.item_key)&&i.count>0),[items]);const refresh=()=>getInventory().then(x=>setItems(x.map(i=>({id:String(i.id),item_key:i.item_key,name:i.name,icon:i.icon,count:i.quantity,description:i.description??''})))).catch(()=>{});const send=async()=>{const v=text.trim();if(!v)return;setText('');try{const msg=await sendChat(v,{quest,hp});setMessages(x=>[...x,msg])}catch{setText(v)}};const clear=async()=>{if(clearing||!messages.length)return;if(!window.confirm('Очистить историю чата?'))return;setClearing(true);try{await clearChat();setMessages([])}finally{setClearing(false)}};const rollCheck=async()=>{setRolling(true);setResult(null);setDamage(null);try{const key=mode==='skill'?skill:mode==='save'?save:weapon;const r=await rollDnd(mode,key,dc,advantage);setResult(r);addLog(`${r.success?'✓':'✗'} ${r.name}: d20 ${r.roll}${r.modifier!==undefined&&r.modifier>=0?` +${r.modifier}`:r.modifier||''}${r.proficiency?` +${r.proficiency}`:''} = ${r.total}${r.target?` vs ${r.target}`:''}`)}catch(e){addLog(`⚠ ${e instanceof Error?e.message:'Не удалось выполнить бросок'}`)}finally{setRolling(false)}};const rollDamage=async()=>{if(!result?.success||result.kind!=='attack')return;setRolling(true);try{const r=await rollDnd('damage',result.key,result.critical?20:19);setDamage(r);addLog(`⚔ Урон ${r.name}: d${r.damage_die} = ${r.roll}, итог ${r.total}`)}finally{setRolling(false)}};const useItem=async(item:InventoryItem)=>{try{await useInventoryItem(item.item_key);if(item.item_key==='potion'){heal(20);setItemResult(`🧪 ${item.name}: +20 HP. Сейчас ${Math.min(100,hp+20)}/100.`)}else setItemResult(`${item.icon} ${item.name}: ${contextText[item.item_key]||item.description||'Предмет использован.'}`);addLog(`${item.icon} ${item.name}: ${contextText[item.item_key]||item.description||'использован.'}`);setItemsOpen(false);await refresh()}catch(e){setItemResult(`⚠ ${e instanceof Error?e.message:'Не удалось использовать предмет'}`)}};return <div className="home-adventure">{!hasCharacter&&<div className="quest-copy"><span>{quest.location.toUpperCase()} · {quest.difficulty.toUpperCase()}</span><h1>{quest.title}</h1><p>{quest.description}</p><div className="quest-story"><BookOpen size={16}/><p>{quest.story}</p></div></div>}<section className="dm-chat"><div className="panel-title"><MessageCircle size={15}/> МАСТЕР ПРИКЛЮЧЕНИЯ <span className="soon">AI · онлайн</span><button className="chat-clear" onClick={clear} disabled={clearing||!messages.length}><Trash2 size={14}/><span>{clearing?'Очистка…':'Очистить чат'}</span></button></div><div className="chat-body">{messages.map(m=><div className={m.role==='user'?'event-message user-message':'dm-message'} key={m.id}><b>{m.role==='user'?name:'Мастер'}</b><p>{m.content}</p></div>)}{log.map((x:string,i:number)=><div className="event-message" key={`${x}-${i}`}>{x}</div>)}{itemResult&&<div className="event-message item-result">{itemResult}</div>}</div><div className="chat-input"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&void send()} placeholder="Напиши мастеру..."/><button onClick={()=>void send()}><Send size={15}/></button></div></section><section className="combat-panel"><div className="panel-title"><Dice5 size={16}/><span>БОЕВЫЕ И D20 ПРОВЕРКИ</span></div><div className="combat-tabs"><button className={mode==='skill'?'active':''} onClick={()=>setMode('skill')}><Sparkles size={14}/>Навыки</button><button className={mode==='save'?'active':''} onClick={()=>setMode('save')}><ShieldCheck size={14}/>Спасбросок</button><button className={mode==='attack'?'active':''} onClick={()=>setMode('attack')}><Swords size={14}/>Атака</button><button className="items-button" onClick={()=>setItemsOpen(v=>!v)}><Backpack size={14}/>Предметы</button></div><div className="combat-controls">{mode==='skill'&&<select value={skill} onChange={e=>setSkill(e.target.value)}>{skills.map(([k,n])=><option key={k} value={k}>{n}</option>)}</select>}{mode==='save'&&<select value={save} onChange={e=>setSave(e.target.value)}>{saves.map(([k,n])=><option key={k} value={k}>{n}</option>)}</select>}{mode==='attack'&&<select value={weapon} onChange={e=>setWeapon(e.target.value)}>{ownedWeapons.length?ownedWeapons.map(i=><option key={i.item_key} value={i.item_key}>{i.name} ×{i.count} · d{damageDie[i.item_key]||4}</option>):<option value="dagger">Нет оружия</option>}</select>}<label className="dc-field"><Target size={13}/><input type="number" min="1" max="30" value={dc} onChange={e=>setDc(Math.max(1,Math.min(30,Number(e.target.value)||15)))}/><span>{mode==='attack'?'КД':'DC'}</span></label><button className={`advantage-button ${advantage!==0?'active':''}`} onClick={()=>setAdvantage(advantage===0?1:advantage===1?-1:0)}>{advantage===1?'Преимущество':advantage===-1?'Помеха':'Обычный бросок'}</button><button className="engine-roll" disabled={!hasCharacter||rolling||(mode==='attack'&&!ownedWeapons.length)} onClick={()=>void rollCheck()}>{rolling?'Бросок…':mode==='attack'?'Бросить атаку':'Бросить d20'}</button></div>{itemsOpen&&<div className="combat-items">{ordinary.length?ordinary.map((i:InventoryItem)=><button key={i.id} onClick={()=>void useItem(i)}><span>{i.icon}</span><span><b>{i.name} ×{i.count}</b><small>{contextText[i.item_key]||i.description||'Использовать предмет.'}</small></span><ChevronRight size={14}/></button>):<p>Обычных предметов в инвентаре нет.</p>}</div>}{result&&<div className={`dnd-engine-result ${result.success?'success':'failure'}`}><b>{result.kind==='attack'?'АТАКА':result.kind==='save'?'СПАСБРОСОК':'ПРОВЕРКА НАВЫКА'}</b><span>{result.name} · d20 {result.roll}{result.modifier!==undefined&&result.modifier>=0?` +${result.modifier}`:result.modifier||''}{result.proficiency?` +${result.proficiency}`:''} = {result.total}{result.target?` vs ${result.target}`:''}</span><strong>{result.critical?'КРИТИЧЕСКОЕ ПОПАДАНИЕ':result.critical_failure?'КРИТИЧЕСКИЙ ПРОМАХ':result.success?'УСПЕХ':'ПРОВАЛ'}</strong>{result.kind==='attack'&&result.success&&<button onClick={()=>void rollDamage()} disabled={rolling}>Бросить урон d{result.damage_die}</button>}</div>}{damage&&<div className="dnd-engine-result success"><b>УРОН</b><span>{damage.name} · d{damage.damage_die} = {damage.roll} + модификатор = {damage.total}</span></div>}<div className="combat-footer"><button onClick={toggleHint}>{hint?'Скрыть подсказку':'Подсказка'}</button>{solved&&<button className="primary" onClick={next}>Следующий квест <ChevronRight size={14}/></button>}</div>{hint&&<div className="hint">💡 {quest.hint}</div>}</section></div>}
+
+export default function DmChat({hasCharacter=false}:{hasCharacter?:boolean}){
+  const {quest,hp,solved,hint,toggleHint,next,log,addLog,heal}=useGame();
+  const [messages,setMessages]=useState<ChatMessage[]>([]);
+  const [text,setText]=useState('');
+  const [name,setName]=useState('Персонаж');
+  const [clearing,setClearing]=useState(false);
+  const [mode,setMode]=useState<'skill'|'save'|'attack'>('skill');
+  const [skill,setSkill]=useState('perception');
+  const [save,setSave]=useState('dexterity');
+  const [weapon,setWeapon]=useState('dagger');
+  const [dc,setDc]=useState(15);
+  const [advantage,setAdvantage]=useState<-1|0|1>(0);
+  const [result,setResult]=useState<DndRoll|null>(null);
+  const [damage,setDamage]=useState<DndRoll|null>(null);
+  const [rolling,setRolling]=useState(false);
+  const [items,setItems]=useState<InventoryItem[]>([]);
+  const [itemsOpen,setItemsOpen]=useState(false);
+  const [itemResult,setItemResult]=useState('');
+
+  useEffect(()=>{
+    getChat().then(setMessages).catch(()=>{});
+    me().then(u=>setName(u.character?.name?.trim()||u.username||'Персонаж')).catch(()=>{});
+    getInventory().then(x=>setItems(x.map(i=>({id:String(i.id),item_key:i.item_key,name:i.name,icon:i.icon,count:i.quantity,description:i.description??''})))).catch(()=>{});
+  },[]);
+
+  const ordinary=useMemo(()=>items.filter(i=>!weaponKeys.has(i.item_key)&&i.count>0),[items]);
+  const ownedWeapons=useMemo(()=>items.filter(i=>weaponKeys.has(i.item_key)&&i.count>0),[items]);
+  const refresh=()=>getInventory().then(x=>setItems(x.map(i=>({id:String(i.id),item_key:i.item_key,name:i.name,icon:i.icon,count:i.quantity,description:i.description??''})))).catch(()=>{});
+
+  const send=async()=>{
+    const v=text.trim();
+    if(!v)return;
+    setText('');
+    try{
+      const msg=await sendChat(v,{quest,hp});
+      setMessages(x=>[...x,msg]);
+    }catch{
+      setText(v);
+    }
+  };
+
+  const clear=async()=>{
+    if(clearing||!messages.length)return;
+    if(!window.confirm('Очистить историю чата?'))return;
+    setClearing(true);
+    try{
+      await clearChat();
+      setMessages([]);
+    }finally{
+      setClearing(false);
+    }
+  };
+
+  const notifyDm=async(message:string)=>{
+    try{
+      const msg=await sendChat(message,{quest,hp});
+      setMessages(x=>[...x,msg]);
+    }catch(e){
+      addLog(`⚠ Мастер не получил результат броска: ${e instanceof Error?e.message:'ошибка связи'}`);
+    }
+  };
+
+  const rollCheck=async()=>{
+    setRolling(true);
+    setResult(null);
+    setDamage(null);
+    try{
+      const key=mode==='skill'?skill:mode==='save'?save:weapon;
+      const r=await rollDnd(mode,key,dc,advantage);
+      setResult(r);
+      const resultLine=`${r.name}: d20 ${r.roll}${r.modifier!==undefined?` ${r.modifier>=0?`+${r.modifier}`:r.modifier}`:''}${r.proficiency?` +${r.proficiency}`:''} = ${r.total}${r.target?` vs ${r.target}`:''}`;
+      addLog(`${r.success?'✓':'✗'} ${resultLine}`);
+      const kindLabel=mode==='attack'?'Атака':mode==='save'?'Спасбросок':'Проверка навыка';
+      const outcome=r.critical?'критическое попадание':r.critical_failure?'критический провал':r.success?'успех':'провал';
+      await notifyDm(`Серверный результат броска. Тип: ${kindLabel}. ${resultLine}. Исход: ${outcome}. Этот бросок уже окончательно определён сервером; не бросай кубики повторно и продолжи сцену, учитывая результат.`);
+    }catch(e){
+      addLog(`⚠ ${e instanceof Error?e.message:'Не удалось выполнить бросок'}`);
+    }finally{
+      setRolling(false);
+    }
+  };
+
+  const rollDamage=async()=>{
+    if(!result?.success||result.kind!=='attack')return;
+    setRolling(true);
+    try{
+      const r=await rollDnd('damage',result.key,result.critical?20:19);
+      setDamage(r);
+      addLog(`⚔ Урон ${r.name}: d${r.damage_die} = ${r.roll}, итог ${r.total}`);
+      await notifyDm(`Серверный результат урона. ${r.name}: d${r.damage_die} = ${r.roll}, итог ${r.total}. Урон уже окончательно определён сервером; не бросай повторно и продолжи сцену с учётом этого урона.`);
+    }catch(e){
+      addLog(`⚠ ${e instanceof Error?e.message:'Не удалось выполнить бросок урона'}`);
+    }finally{
+      setRolling(false);
+    }
+  };
+
+  const useItem=async(item:InventoryItem)=>{
+    try{
+      await useInventoryItem(item.item_key);
+      if(item.item_key==='potion'){
+        heal(20);
+        setItemResult(`🧪 ${item.name}: +20 HP. Сейчас ${Math.min(100,hp+20)}/100.`);
+        await notifyDm(`Игрок использовал предмет: ${item.name}. Эффект: +20 HP. Новое значение HP: ${Math.min(100,hp+20)}/100. Не придумывай дополнительный механический эффект.`);
+      }else{
+        const action=contextText[item.item_key]||item.description||'Предмет использован.';
+        setItemResult(`${item.icon} ${item.name}: ${action}`);
+        addLog(`${item.icon} ${item.name}: ${action}`);
+        await notifyDm(`Игрок использовал предмет: ${item.name}. Действие: ${action}. Не меняй механику предмета самовольно; продолжи сцену с учётом действия игрока.`);
+      }
+      setItemsOpen(false);
+      await refresh();
+    }catch(e){
+      setItemResult(`⚠ ${e instanceof Error?e.message:'Не удалось использовать предмет'}`);
+    }
+  };
+
+  return <div className="home-adventure">
+    {!hasCharacter&&<div className="quest-copy">
+      <span>{quest.location.toUpperCase()} · {quest.difficulty.toUpperCase()}</span>
+      <h1>{quest.title}</h1>
+      <p>{quest.description}</p>
+      <div className="quest-story"><BookOpen size={16}/><p>{quest.story}</p></div>
+    </div>}
+
+    <section className="dm-chat">
+      <div className="panel-title"><MessageCircle size={15}/> МАСТЕР ПРИКЛЮЧЕНИЯ <span className="soon">AI · онлайн</span><button className="chat-clear" onClick={clear} disabled={clearing||!messages.length}><Trash2 size={14}/><span>{clearing?'Очистка…':'Очистить чат'}</span></button></div>
+      <div className="chat-body">
+        {messages.map(m=><div className={m.role==='user'?'event-message user-message':'dm-message'} key={m.id}><b>{m.role==='user'?name:'Мастер'}</b><p>{m.content}</p></div>)}
+        {log.map((x:string,i:number)=><div className="event-message" key={`${x}-${i}`}>{x}</div>)}
+        {itemResult&&<div className="event-message item-result">{itemResult}</div>}
+      </div>
+      <div className="chat-input"><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&void send()} placeholder="Напиши мастеру..."/><button onClick={()=>void send()}><Send size={15}/></button></div>
+    </section>
+
+    <section className="combat-panel">
+      <div className="panel-title"><Dice5 size={16}/><span>БОЕВЫЕ И D20 ПРОВЕРКИ</span></div>
+      <div className="combat-tabs">
+        <button className={mode==='skill'?'active':''} onClick={()=>setMode('skill')}><Sparkles size={14}/>Навыки</button>
+        <button className={mode==='save'?'active':''} onClick={()=>setMode('save')}><ShieldCheck size={14}/>Спасбросок</button>
+        <button className={mode==='attack'?'active':''} onClick={()=>setMode('attack')}><Swords size={14}/>Атака</button>
+        <button className="items-button" onClick={()=>setItemsOpen(v=>!v)}><Backpack size={14}/>Предметы</button>
+      </div>
+      <div className="combat-controls">
+        {mode==='skill'&&<select value={skill} onChange={e=>setSkill(e.target.value)}>{skills.map(([k,n])=><option key={k} value={k}>{n}</option>)}</select>}
+        {mode==='save'&&<select value={save} onChange={e=>setSave(e.target.value)}>{saves.map(([k,n])=><option key={k} value={k}>{n}</option>)}</select>}
+        {mode==='attack'&&<select value={weapon} onChange={e=>setWeapon(e.target.value)}>{ownedWeapons.length?ownedWeapons.map(i=><option key={i.item_key} value={i.item_key}>{i.name} ×{i.count} · d{damageDie[i.item_key]||4}</option>):<option value="dagger">Нет оружия</option>}</select>}
+        <label className="dc-field"><Target size={13}/><input type="number" min="1" max="30" value={dc} onChange={e=>setDc(Math.max(1,Math.min(30,Number(e.target.value)||15)))}/><span>{mode==='attack'?'КД':'DC'}</span></label>
+        <button className={`advantage-button ${advantage!==0?'active':''}`} onClick={()=>setAdvantage(advantage===0?1:advantage===1?-1:0)}>{advantage===1?'Преимущество':advantage===-1?'Помеха':'Обычный бросок'}</button>
+        <button className="engine-roll" disabled={!hasCharacter||rolling||(mode==='attack'&&!ownedWeapons.length)} onClick={()=>void rollCheck()}>{rolling?'Бросок…':mode==='attack'?'Бросить атаку':'Бросить d20'}</button>
+      </div>
+
+      {itemsOpen&&<div className="combat-items">{ordinary.length?ordinary.map((i:InventoryItem)=><button key={i.id} onClick={()=>void useItem(i)}><span>{i.icon}</span><span><b>{i.name} ×{i.count}</b><small>{contextText[i.item_key]||i.description||'Использовать предмет.'}</small></span><ChevronRight size={14}/></button>):<p>Обычных предметов в инвентаре нет.</p>}</div>}
+
+      {result&&<div className={`dnd-engine-result ${result.success?'success':'failure'}`}>
+        <b>{result.kind==='attack'?'АТАКА':result.kind==='save'?'СПАСБРОСОК':'ПРОВЕРКА НАВЫКА'}</b>
+        <span>{result.name} · d20 {result.roll}{result.modifier!==undefined&&result.modifier>=0?` +${result.modifier}`:result.modifier||''}{result.proficiency?` +${result.proficiency}`:''} = {result.total}{result.target?` vs ${result.target}`:''}</span>
+        <strong>{result.critical?'КРИТИЧЕСКОЕ ПОПАДАНИЕ':result.critical_failure?'КРИТИЧЕСКИЙ ПРОМАХ':result.success?'УСПЕХ':'ПРОВАЛ'}</strong>
+        {result.kind==='attack'&&result.success&&<button onClick={()=>void rollDamage()} disabled={rolling}>Бросить урон d{result.damage_die}</button>}
+      </div>}
+
+      {damage&&<div className="dnd-engine-result success"><b>УРОН</b><span>{damage.name} · d{damage.damage_die} = {damage.roll} + модификатор = {damage.total}</span></div>}
+
+      <div className="combat-footer"><button onClick={toggleHint}>{hint?'Скрыть подсказку':'Подсказка'}</button>{solved&&<button className="primary" onClick={next}>Следующий квест <ChevronRight size={14}/></button>}</div>
+      {hint&&<div className="hint">💡 {quest.hint}</div>}
+    </section>
+  </div>;
+}
