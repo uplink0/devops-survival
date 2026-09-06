@@ -38,20 +38,41 @@ jobs:
             echo "OPENAI_API_KEY is EMPTY"
             exit 1
           fi
-          http_code=$(curl -sS -o /tmp/openrouter-response.json -w "%{http_code}" \
-            "$OPENAI_BASE_URL/chat/completions" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -H "Content-Type: application/json" \
-            -H "HTTP-Referer: https://atlas-infra.ru" \
-            -H "X-Title: DND Adventure" \
-            -d '{"model":"openrouter/free","messages":[{"role":"user","content":"Reply with exactly OK"}],"max_tokens":16}')
-          echo "OpenRouter HTTP status: $http_code"
-          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-            echo "OpenRouter response:"
-            cat /tmp/openrouter-response.json
-            exit 1
-          fi
-          echo "OpenRouter API test: OK"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          url = os.environ['OPENAI_BASE_URL'].rstrip('/') + '/chat/completions'
+          payload = json.dumps({
+              'model': os.environ['OPENAI_MODEL'],
+              'messages': [{'role': 'user', 'content': 'Reply with exactly OK'}],
+              'max_tokens': 16,
+          }).encode('utf-8')
+          request = urllib.request.Request(
+              url,
+              data=payload,
+              method='POST',
+              headers={
+                  'Authorization': 'Bearer ' + os.environ['OPENAI_API_KEY'],
+                  'Content-Type': 'application/json',
+                  'HTTP-Referer': 'https://atlas-infra.ru',
+                  'X-Title': 'DND Adventure',
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  body = response.read().decode('utf-8')
+                  print('OpenRouter HTTP status:', response.status)
+                  print('OpenRouter API test: OK')
+                  print('Response preview:', body[:200])
+          except urllib.error.HTTPError as exc:
+              print('OpenRouter HTTP status:', exc.code)
+              print('OpenRouter response:')
+              print(exc.read().decode('utf-8')[:1000])
+              raise SystemExit(1)
+          PY
       - name: Deploy to production
         uses: appleboy/ssh-action@v1.2.2
         env:
