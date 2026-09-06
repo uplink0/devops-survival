@@ -82,9 +82,9 @@ def _call_openai(messages: list[dict]) -> str:
 
     payload = {
         'model': settings.openai_model,
-        'input': messages,
-        'max_output_tokens': settings.openai_max_output_tokens,
-        'store': False,
+        'messages': messages,
+        'max_tokens': settings.openai_max_output_tokens,
+        'temperature': 0.8,
     }
     headers = {
         'Authorization': f'Bearer {settings.openai_api_key}',
@@ -94,7 +94,7 @@ def _call_openai(messages: list[dict]) -> str:
     try:
         with httpx.Client(timeout=settings.openai_timeout_seconds) as client:
             response = client.post(
-                f'{settings.openai_base_url.rstrip("/")}/responses',
+                f'{settings.openai_base_url.rstrip("/")}/chat/completions',
                 headers=headers,
                 json=payload,
             )
@@ -102,21 +102,20 @@ def _call_openai(messages: list[dict]) -> str:
             data = response.json()
     except httpx.HTTPStatusError as exc:
         body = exc.response.text[:1000]
-        logger.error('OpenAI API returned %s: %s', exc.response.status_code, body)
-        raise RuntimeError(f'OpenAI API error {exc.response.status_code}: {body}') from exc
+        logger.error('AI API returned %s: %s', exc.response.status_code, body)
+        raise RuntimeError(f'AI API error {exc.response.status_code}: {body}') from exc
     except Exception as exc:
-        logger.exception('OpenAI API request failed: %s', exc)
-        raise RuntimeError(f'OpenAI API request failed: {exc}') from exc
+        logger.exception('AI API request failed: %s', exc)
+        raise RuntimeError(f'AI API request failed: {exc}') from exc
 
-    parts = []
-    for item in data.get('output', []):
-        for content in item.get('content', []):
-            if content.get('type') == 'output_text' and content.get('text'):
-                parts.append(content['text'])
+    try:
+        text = data['choices'][0]['message']['content'].strip()
+    except (KeyError, IndexError, TypeError, AttributeError) as exc:
+        logger.error('AI returned unexpected response: %s', json.dumps(data, ensure_ascii=False)[:2000])
+        raise RuntimeError('The DM model returned an unexpected response') from exc
 
-    text = '\n'.join(parts).strip()
     if not text:
-        logger.error('OpenAI returned no output_text: %s', json.dumps(data, ensure_ascii=False)[:2000])
+        logger.error('AI returned empty content: %s', json.dumps(data, ensure_ascii=False)[:2000])
         raise RuntimeError('The DM model returned an empty response')
     return text
 
