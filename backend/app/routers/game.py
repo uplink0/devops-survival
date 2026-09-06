@@ -51,6 +51,7 @@ def leaderboard(db:Session=Depends(get_db)):
  users=db.scalars(select(User).order_by(User.xp.desc(),User.created_at.asc()).limit(50)).all();return [{'rank':i+1,'username':u.username,'xp':u.xp,'streak':u.streak} for i,u in enumerate(users)]
 @router.get('/inventory')
 def inventory(user:User=Depends(current_user),db:Session=Depends(get_db)):
+ if not user.character_name:return []
  return [{'id':x.id,'item_key':x.item_key,'name':x.name,'icon':x.icon,'quantity':x.quantity,'description':x.description} for x in db.scalars(select(InventoryItem).where(InventoryItem.user_id==user.id,InventoryItem.quantity>0).order_by(InventoryItem.id)).all()]
 @router.get('/shop')
 def shop(user:User=Depends(current_user)):
