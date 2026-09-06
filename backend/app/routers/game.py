@@ -10,6 +10,12 @@ from ..models import ChatMessage,Companion,InventoryItem,Progress,User
 from ..schemas import ChatIn,ProgressIn
 router=APIRouter(prefix='/api',tags=['game'])
 def public_user(u:User):return {'id':u.id,'username':u.username,'email':u.email,'xp':u.xp,'streak':u.streak,'created_at':u.created_at,'avatar_url':u.avatar_url}
+def ensure_party(user:User,db:Session):
+ if not db.scalar(select(InventoryItem).where(InventoryItem.user_id==user.id)):
+  db.add_all([InventoryItem(user_id=user.id,item_key='potion',name='Зелье лечения',icon='🧪',quantity=2,description='Восстанавливает здоровье.'),InventoryItem(user_id=user.id,item_key='torch',name='Факел',icon='🔥',quantity=3,description='Освещает тёмные места.'),InventoryItem(user_id=user.id,item_key='dagger',name='Кинжал',icon='🗡️',quantity=1,description='Простой, но надёжный.')])
+ if not db.scalar(select(Companion).where(Companion.user_id==user.id)):
+  db.add_all([Companion(user_id=user.id,name='Лира',role='Следопыт',emoji='🏹',description='Тихая и наблюдательная. Хорошо читает следы.',hp=82),Companion(user_id=user.id,name='Борин',role='Воин',emoji='🛡️',description='Держит строй и принимает удар на себя.',hp=100)])
+ db.commit()
 @router.get('/profile')
 def profile(user:User=Depends(current_user),db:Session=Depends(get_db)):
  rows=db.scalars(select(Progress).where(Progress.user_id==user.id).order_by(Progress.last_played.desc())).all();return {'user':public_user(user),'progress':[{'incident_id':r.incident_id,'solved':r.solved,'best_score':r.best_score,'attempts':r.attempts,'last_played':r.last_played} for r in rows]}
@@ -22,9 +28,11 @@ def save_progress(data:ProgressIn,user:User=Depends(current_user),db:Session=Dep
 def leaderboard(db:Session=Depends(get_db)):
  users=db.scalars(select(User).order_by(User.xp.desc(),User.created_at.asc()).limit(50)).all();return [{'rank':i+1,'username':u.username,'xp':u.xp,'streak':u.streak} for i,u in enumerate(users)]
 @router.get('/inventory')
-def inventory(user:User=Depends(current_user),db:Session=Depends(get_db)):return [{'id':x.id,'item_key':x.item_key,'name':x.name,'icon':x.icon,'quantity':x.quantity,'description':x.description} for x in db.scalars(select(InventoryItem).where(InventoryItem.user_id==user.id)).all()]
+def inventory(user:User=Depends(current_user),db:Session=Depends(get_db)):
+ ensure_party(user,db);return [{'id':x.id,'item_key':x.item_key,'name':x.name,'icon':x.icon,'quantity':x.quantity,'description':x.description} for x in db.scalars(select(InventoryItem).where(InventoryItem.user_id==user.id)).all()]
 @router.get('/companions')
-def companions(user:User=Depends(current_user),db:Session=Depends(get_db)):return [{'id':x.id,'name':x.name,'role':x.role,'emoji':x.emoji,'description':x.description,'hp':x.hp} for x in db.scalars(select(Companion).where(Companion.user_id==user.id)).all()]
+def companions(user:User=Depends(current_user),db:Session=Depends(get_db)):
+ ensure_party(user,db);return [{'id':x.id,'name':x.name,'role':x.role,'emoji':x.emoji,'description':x.description,'hp':x.hp} for x in db.scalars(select(Companion).where(Companion.user_id==user.id)).all()]
 @router.get('/chat')
 def chat(user:User=Depends(current_user),db:Session=Depends(get_db)):return [{'id':x.id,'role':x.role,'content':x.content,'created_at':x.created_at} for x in db.scalars(select(ChatMessage).where(ChatMessage.user_id==user.id).order_by(ChatMessage.created_at.asc()).limit(100)).all()]
 @router.post('/chat')
