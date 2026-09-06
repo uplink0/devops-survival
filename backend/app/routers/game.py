@@ -7,9 +7,10 @@ from ..auth import current_user
 from ..config import settings
 from ..db import get_db
 from ..models import ChatMessage,Companion,InventoryItem,Progress,User
-from ..schemas import ChatIn,ProgressIn
+from ..schemas import ChatIn,CharacterIn,ProgressIn
 router=APIRouter(prefix='/api',tags=['game'])
-def public_user(u:User):return {'id':u.id,'username':u.username,'email':u.email,'xp':u.xp,'streak':u.streak,'created_at':u.created_at,'avatar_url':u.avatar_url}
+def public_user(u:User):
+ return {'id':u.id,'username':u.username,'email':u.email,'xp':u.xp,'streak':u.streak,'created_at':u.created_at,'avatar_url':u.avatar_url,'character':None if not u.character_name else {'name':u.character_name,'race':u.character_race,'class':u.character_class,'background':u.character_background,'stats':{'strength':u.strength,'dexterity':u.dexterity,'constitution':u.constitution,'intelligence':u.intelligence,'wisdom':u.wisdom,'charisma':u.charisma}}}
 def ensure_party(user:User,db:Session):
  if not db.scalar(select(InventoryItem).where(InventoryItem.user_id==user.id)):
   db.add_all([InventoryItem(user_id=user.id,item_key='potion',name='Зелье лечения',icon='🧪',quantity=2,description='Восстанавливает здоровье.'),InventoryItem(user_id=user.id,item_key='torch',name='Факел',icon='🔥',quantity=3,description='Освещает тёмные места.'),InventoryItem(user_id=user.id,item_key='dagger',name='Кинжал',icon='🗡️',quantity=1,description='Простой, но надёжный.')])
@@ -19,6 +20,15 @@ def ensure_party(user:User,db:Session):
 @router.get('/profile')
 def profile(user:User=Depends(current_user),db:Session=Depends(get_db)):
  rows=db.scalars(select(Progress).where(Progress.user_id==user.id).order_by(Progress.last_played.desc())).all();return {'user':public_user(user),'progress':[{'incident_id':r.incident_id,'solved':r.solved,'best_score':r.best_score,'attempts':r.attempts,'last_played':r.last_played} for r in rows]}
+@router.post('/character')
+def create_character(data:CharacterIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
+ if user.character_name:raise HTTPException(409,'Персонаж уже создан')
+ user.character_name=data.name.strip();user.character_race=data.race.strip();user.character_class=data.character_class.strip();user.character_background=data.background.strip();user.strength=data.strength;user.dexterity=data.dexterity;user.constitution=data.constitution;user.intelligence=data.intelligence;user.wisdom=data.wisdom;user.charisma=data.charisma;db.commit();db.refresh(user);return public_user(user)
+@router.delete('/character')
+def delete_character(user:User=Depends(current_user),db:Session=Depends(get_db)):
+ if not user.character_name:raise HTTPException(404,'Персонаж не создан')
+ for field in ['character_name','character_race','character_class','character_background','strength','dexterity','constitution','intelligence','wisdom','charisma']:setattr(user,field,None)
+ db.commit();db.refresh(user);return public_user(user)
 @router.post('/progress')
 def save_progress(data:ProgressIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
  row=db.scalar(select(Progress).where(Progress.user_id==user.id,Progress.incident_id==data.incident_id))
