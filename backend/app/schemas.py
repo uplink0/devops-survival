@@ -8,3 +8,5 @@ class ChatOut(BaseModel):id:int;role:str;content:str;created_at:datetime
 class CharacterIn(BaseModel):
  name:str=Field(min_length=2,max_length=80);race:str=Field(min_length=2,max_length=80);character_class:str=Field(min_length=2,max_length=80);background:str=Field(default='',max_length=160)
  strength:int=Field(ge=3,le=20);dexterity:int=Field(ge=3,le=20);constitution:int=Field(ge=3,le=20);intelligence:int=Field(ge=3,le=20);wisdom:int=Field(ge=3,le=20);charisma:int=Field(ge=3,le=20)
+class ShopBuyIn(BaseModel):
+ item_key:str=Field(min_length=1,max_length=64)
